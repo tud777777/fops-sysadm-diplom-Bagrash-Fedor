@@ -47,7 +47,7 @@
 
 ## Результаты выполнения Terraform и Ansible
 
-![]([img_terraform_result_1.png](https://tud777777/fops-sysadm-diplom-Bagrash-Fedor/blob/main/img/img2.png))
+![]([img_terraform_result_1.png](./img/img2.png))
 ![](img_terraform_result_2.png)
 
 ## Работа балансировщика:
