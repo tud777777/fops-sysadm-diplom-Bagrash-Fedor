@@ -56,7 +56,7 @@
 
 ## Kibana:
 
-[http://89.169.144.135:5601/app/dashboards#/view/046212a0-a2a1-11e7-928f-5dbe6f6f5519-ecs?_g=(filters:!(),refreshInterval:(pause:!t,value:5000),time:(from:now-15m,to:now))](http://89.169.144.135:5601/app/dashboards#/view/046212a0-a2a1-11e7-928f-5dbe6f6f5519-ecs?_g=(filters:!(),refreshInterval:(pause:!t,value:5000),time:(from:now-15m,to:now))
+http://89.169.144.135:5601/app/dashboards#/view/046212a0-a2a1-11e7-928f-5dbe6f6f5519-ecs?_g=(filters:!(),refreshInterval:(pause:!t,value:5000),time:(from:now-15m,to:now))](http://89.169.144.135:5601/app/dashboards#/view/046212a0-a2a1-11e7-928f-5dbe6f6f5519-ecs?_g=(filters:!(),refreshInterval:(pause:!t,value:5000),time:(from:now-15m,to:now))
 
 ## Grafana:
 
