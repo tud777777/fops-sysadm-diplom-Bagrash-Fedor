@@ -47,7 +47,7 @@
 
 ## Результаты выполнения Terraform и Ansible
 
-![]([img_terraform_result_1.png](./img/img2.png))
+![](./img/img2.png)
 ![](img_terraform_result_2.png)
 
 ## Работа балансировщика:
