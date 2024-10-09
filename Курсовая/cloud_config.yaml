@@ -1,0 +1,13 @@
+#cloud-config
+users:
+  - name: yc-user
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh-authorized-keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDTIFW0rNK5PS7yEIvXya+9qSlGwNJuriWmmxOaOF5xnwO41eFnXAtTSjS/2rJ0vcGsqmI9nTiqhtnWLIo0CC4QEUd4yorenU+mCAPvJkRDwWv1LU0lGxO1ESh+AyJqajXnBReFE9c0BMLNU2FHiPhrSdST6ZKTAZKhbq+sgmjSpTTQF88CFeovq/2BAnMY4fEx47zKCxdBnpTwxxf4mGUf30btBWXZTDi8RePCxgBZf6Gwgao0MuFH51Ox6dHDTdQwKNWvIGKRPCS8oZzS+X4v8TEC3sIjdbAv8fRUdT539UvQv3rH7SBUNhSDRU1HmXpWonX/ZymMFgY/UKn7OUV+3IX2+5QYPA5fHsewXR98ZUT46tMvxFSLOieQM2i/VEAR3LzyWp0EWVxDEF3ALPbRz0Psff9tj5ZVtKKPgpXCYPE4gnjWgKgYAfBGUA1x3Z/YXonGIBEzvQSy+YOnnW7Re2xVQ6cLK4PbUh45r2wSqDq3g2tSYIDHoe9T16ejMDM= user@WIN-ECB0J3KQ1RA
+write_files:
+  - path: /etc/sudoers.d/yc_user
+    content: |
+      yc-user ALL=(ALL) NOPASSWD:ALL
+    owner: root:root
+    permissions: '0440'

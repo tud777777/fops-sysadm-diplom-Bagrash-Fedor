@@ -1,0 +1,478 @@
+---
+- name: Install Nginx and configure custom index page
+  hosts: web
+  become: true
+
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Ensure Nginx is started and enabled
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+    - name: Create custom index.html with IP address
+      copy:
+        dest: /var/www/html/index.html
+        content: |
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Server</title>
+          </head>
+          <body>
+              <h1>Hello!</h1>
+          </body>
+          </html>
+
+
+    - name: Restart Nginx to apply changes
+      systemd:
+        name: nginx
+        state: restarted
+
+
+- name: Установка Node Exporter
+  hosts: web
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Убедиться, что wget установлен
+      ansible.builtin.apt:
+        name: wget
+        state: present
+        update_cache: yes
+
+    - name: Убедиться, что tar установлен
+      ansible.builtin.package:
+        name: tar
+        state: present
+
+    - name: Скачиваем Node Exporter
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz"
+        dest: "/tmp/node_exporter.tar.gz"
+
+    - name: Распаковываем Node Exporter
+      ansible.builtin.unarchive:
+        src: "/tmp/node_exporter.tar.gz"
+        dest: "/usr/local/bin/"
+        remote_src: yes
+        extra_opts: [--strip-components=1]
+
+    - name: Создаем пользователя для Node Exporter
+      ansible.builtin.user:
+        name: node_exporter
+        shell: /usr/sbin/nologin
+
+    - name: Создаем системный Unit-файл для Node Exporter
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/node_exporter.service
+        content: |
+          [Unit]
+          Description=Node Exporter
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=node_exporter
+          ExecStart=/usr/local/bin/node_exporter
+
+          [Install]
+          WantedBy=default.target
+
+    - name: Перезагружаем systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Включаем и запускаем Node Exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        enabled: yes
+        state: started
+
+
+- name: Установка NGINX Log Exporter
+  hosts: web
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Скачиваем NGINX Log Exporter
+      ansible.builtin.get_url:
+        url: "https://github.com/martin-helmich/prometheus-nginxlog-exporter/releases/download/v1.11.0/prometheus-nginxlog-exporter_1.11.0_linux_amd64.deb"
+        dest: "/tmp/prometheus-nginxlog-exporter.deb"
+
+    - name: Устанавливаем NGINX Log Exporter
+      ansible.builtin.apt:
+        deb: "/tmp/prometheus-nginxlog-exporter.deb"
+        state: present
+
+    - name: Устанавливаем NGINX Log Exporter
+      ansible.builtin.apt:
+        deb: "/tmp/prometheus-nginxlog-exporter.deb"
+        state: present
+
+    - name: Создаем пользователя для NGINX Log Exporter
+      ansible.builtin.user:
+        name: nginxlog_exporter
+        shell: /usr/sbin/nologin
+
+    - name: Создаем директорию для конфигурационных файлов
+      ansible.builtin.file:
+        path: /etc/nginxlog-exporter/
+        state: directory
+        owner: nginxlog_exporter
+        group: nginxlog_exporter
+        mode: '0755'
+
+    - name: Создаем конфигурационный файл nginxlog-exporter
+      ansible.builtin.copy:
+        dest: /etc/nginxlog-exporter/config.yml
+        content: |
+          listen:
+            port: 4040
+          namespaces:
+            - name: nginx
+              format: "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\""
+              source_files:
+                - /var/log/nginx/access.log
+        owner: nginxlog_exporter
+        group: nginxlog_exporter
+        mode: '0644'
+
+    - name: Изменяем владельца и права доступа к лог-файлу NGINX
+      ansible.builtin.file:
+        path: /var/log/nginx/access.log
+        owner: nginxlog_exporter
+        group: nginxlog_exporter
+        mode: '0644'
+
+    - name: Создаем systemd Unit-файл для NGINX Log Exporter
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nginxlog_exporter.service
+        content: |
+          [Unit]
+          Description=NGINX Log Exporter
+          After=network.target
+
+          [Service]
+          User=nginxlog_exporter
+          ExecStart=/usr/sbin/prometheus-nginxlog-exporter -config-file /etc/nginxlog-exporter/config.yml
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Перезагружаем systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Включаем и запускаем NGINX Log Exporter
+      ansible.builtin.systemd:
+        name: nginxlog_exporter
+        enabled: yes
+        state: started
+
+
+- name: Установка Prometheus
+  hosts: prometheus
+  gather_facts: no
+  become: true
+  tasks:
+    - name: Убедиться, что wget установлен
+      ansible.builtin.apt:
+        name: wget
+        state: present
+        update_cache: yes
+
+    - name: Создаем пользователя и группу для Prometheus
+      ansible.builtin.user:
+        name: prometheus
+        shell: /usr/sbin/nologin
+        comment: "Prometheus User"
+
+    - name: Скачиваем Prometheus
+      ansible.builtin.get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v2.46.0/prometheus-2.46.0.linux-amd64.tar.gz"
+        dest: "/tmp/prometheus.tar.gz"
+
+    - name: Создаем директории для Prometheus
+      ansible.builtin.file:
+        path: /usr/local/prometheus
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Распаковываем Prometheus
+      ansible.builtin.unarchive:
+        src: "/tmp/prometheus.tar.gz"
+        dest: "/usr/local/prometheus"
+        remote_src: yes
+        extra_opts: [--strip-components=1]
+
+    - name: Создаем директории для Prometheus
+      ansible.builtin.file:
+        path: /etc/prometheus
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Создаем директорию для данных Prometheus
+      ansible.builtin.file:
+        path: /var/lib/prometheus
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+
+    - name: Копирование файлов консоли из директории установки Prometheus
+      ansible.builtin.copy:
+        src: /usr/local/prometheus/consoles
+        dest: /etc/prometheus/
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        remote_src: yes
+
+    - name: Копирование библиотек консолей
+      ansible.builtin.copy:
+        src: /usr/local/prometheus/console_libraries
+        dest: /etc/prometheus/
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        remote_src: yes
+
+    - name: Создаем директорию для данных Prometheus
+      ansible.builtin.file:
+        path: /etc/prometheus/prometheus.yml
+        state: touch
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
+
+    - name: Обновляем конфигурацию Prometheus для NGINX Log Exporter и Node Exporter
+      ansible.builtin.blockinfile:
+        dest: /etc/prometheus/prometheus.yml
+        content: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: 'node_exporter1'
+              static_configs:
+                - targets: ['{{ groups["web"][0] }}:9100']
+
+            - job_name: 'nginx_log_exporter1'
+              static_configs:
+                - targets: ['{{ groups["web"][0] }}:4040']
+
+            - job_name: 'node_exporter2'
+              static_configs:
+                - targets: ['{{ groups["web"][1] }}:9100']
+
+            - job_name: 'nginx_log_exporter2'
+              static_configs:
+                - targets: ['{{ groups["web"][1] }}:4040']
+
+    - name: Создаем systemd Unit-файл для Prometheus
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/prometheus.service
+        content: |
+          [Unit]
+          Description=Prometheus
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=prometheus
+          ExecStart=/usr/local/prometheus/prometheus \
+            --config.file=/etc/prometheus/prometheus.yml \
+            --storage.tsdb.path=/var/lib/prometheus/ \
+            --web.console.templates=/etc/prometheus/consoles \
+            --web.console.libraries=/etc/prometheus/console_libraries
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Перезагружаем systemd для применения изменений
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Включаем и запускаем Prometheus
+      ansible.builtin.systemd:
+        name: prometheus
+        enabled: yes
+        state: started
+
+
+- name: Установка и настройка Grafana с использованием Docker
+  hosts: grafana
+  gather_facts: no
+  become: true
+  tasks:
+    - name: Убедиться, что зависимости установлены
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - software-properties-common
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Установка Docker
+      ansible.builtin.apt:
+        name: docker.io
+        state: present
+
+    - name: Убедиться, что Docker запущен
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Запуск Grafana в контейнере
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:11.2.0
+        state: started
+        ports:
+          - "3000:3000"
+        restart_policy: always
+
+    - name: Подождать, пока Grafana начнет слушать на порту 3000
+      wait_for:
+        timeout: 30
+
+    - name: Authenticate in Grafana and get session cookie
+      uri:
+        url: "http://{{ groups['grafana'][0] }}:3000/login"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body: |
+          {
+            "user": "admin",
+            "password": "admin"
+          }
+        status_code: 200
+        return_content: true
+      register: login_response
+
+    - name: Extract session cookie from login response
+      set_fact:
+        grafana_session_cookie: "{{ login_response.cookies['grafana_session'] }}"
+
+
+- hosts: elasticsearch
+  become: yes
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - wget
+        state: present
+        update_cache: yes
+
+    - name: Add the Elasticsearch repository from Yandex mirror
+      ansible.builtin.shell: |
+        echo "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/8/ stable main" | tee /etc/apt/sources.list.d/elastic-8.x.list
+
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install Elasticsearch
+      ansible.builtin.apt:
+        name: elasticsearch
+        state: present
+
+    - name: Ensure Elasticsearch is enabled and started
+      ansible.builtin.systemd:
+        name: elasticsearch
+        enabled: yes
+        state: started
+
+
+- hosts: kibana
+  become: yes
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - wget
+        state: present
+        update_cache: yes
+
+    - name: Add the Kibana repository from Yandex mirror
+      ansible.builtin.shell: |
+        echo "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/8/ stable main" | tee /etc/apt/sources.list.d/elastic-8.x.list
+
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install Kibana
+      ansible.builtin.apt:
+        name: kibana
+        state: present
+
+    - name: Enable and start Kibana service
+      ansible.builtin.systemd:
+        name: kibana
+        enabled: yes
+        state: started
+
+- hosts: web
+  become: yes
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - wget
+        state: present
+        update_cache: yes
+
+    - name: Add the Filebeat repository from Yandex mirror
+      ansible.builtin.shell: |
+        echo "deb [trusted=yes] https://mirror.yandex.ru/mirrors/elastic/8/ stable main" | tee /etc/apt/sources.list.d/elastic-8.x.list
+
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install Filebeat
+      ansible.builtin.apt:
+        name: filebeat
+        state: present
+
+    - name: Ensure Filebeat is enabled and started
+      ansible.builtin.systemd:
+        name: filebeat
+        enabled: yes
+        state: started
+
+
