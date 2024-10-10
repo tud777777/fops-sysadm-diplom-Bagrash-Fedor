@@ -59,6 +59,7 @@
 http://89.169.144.135:5601/app/dashboards#/view/046212a0-a2a1-11e7-928f-5dbe6f6f5519-ecs?_g=(filters:!(),refreshInterval:(pause:!t,value:5000),time:(from:now-15m,to:now))](http://89.169.144.135:5601/app/dashboards#/view/046212a0-a2a1-11e7-928f-5dbe6f6f5519-ecs?_g=(filters:!(),refreshInterval:(pause:!t,value:5000),time:(from:now-15m,to:now))
 
 ## Grafana:
-
+Логин: admin\
+Пароль: admin\
 [http://89.169.138.96:3000/d/ae0dcw9zdpo8we/nginx-servers?orgId=1](http://89.169.138.96:3000/d/ae0dcw9zdpo8we/nginx-servers?orgId=1)
 
